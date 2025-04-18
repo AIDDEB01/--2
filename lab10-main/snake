@@ -1,0 +1,23 @@
+CREATE TABLE users (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(50) UNIQUE,
+    level INT DEFAULT 1
+);
+CREATE TABLE user_score (
+    user_id INT REFERENCES users(id),
+    score INT DEFAULT 0,
+    PRIMARY KEY (user_id)
+);
+SELECT id, level FROM users WHERE username = 'Attila';
+INSERT INTO users (username) VALUES ('Zhambul') RETURNING id;
+UPDATE user_score
+SET score = 500
+WHERE user_id = (SELECT id FROM users WHERE username = 'Maxat');
+UPDATE users
+SET level = 2
+WHERE username = 'Damil';
+UPDATE user_score
+SET score = 500
+WHERE user_id = (SELECT id FROM users WHERE username = 'Egor');
+UPDATE users
+SET level = 2

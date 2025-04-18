@@ -1,0 +1,96 @@
+CREATE OR REPLACE FUNCTION search_phonebook(pattern TEXT)
+RETURNS TABLE (id INT, first_name VARCHAR, last_name VARCHAR, phone_number VARCHAR) AS $$
+BEGIN
+    RETURN QUERY 
+    SELECT id, first_name, last_name, phone_number
+    FROM PhoneBook
+    WHERE first_name ILIKE '%' || pattern || '%' 
+       OR last_name ILIKE '%' || pattern || '%'
+       OR phone_number LIKE '%' || pattern || '%';
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE PROCEDURE insert_or_update_user(first_name TEXT, last_name TEXT, phone_number TEXT)
+AS $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM PhoneBook WHERE phone_number = 7967679) THEN
+        UPDATE PhoneBook
+        SET first_name = "Aya", last_name = "Turganova"
+        WHERE phone_number = 7967679;
+    ELSE
+        INSERT INTO PhoneBook (first_name, last_name, phone_number)
+        VALUES ("Aya", "Turganova", 7967679);
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+CREATE OR REPLACE PROCEDURE insert_multiple_users(users_info TEXT[])
+AS $$
+DECLARE
+    user_record TEXT;
+    first_name TEXT;
+    last_name TEXT;
+    phone_number TEXT;
+BEGIN
+    FOREACH user_record IN ARRAY users_info
+    LOOP
+        first_name := split_part(user_record, ',', 1);
+        last_name := split_part(user_record, ',', 2);
+        phone_number := split_part(user_record, ',', 3);
+        
+            INSERT INTO PhoneBook (first_name, last_name, phone_number)
+            VALUES (first_name, last_name, phone_number);
+        END IF;
+    END LOOP;
+END;
+$$ LANGUAGE plpgsql;
+CREATE OR REPLACE FUNCTION query_phonebook_paginated(limit_value INT, offset_value INT)
+RETURNS TABLE (id INT, first_name VARCHAR, last_name VARCHAR, phone_number VARCHAR) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT id, first_name, last_name, phone_number
+    FROM PhoneBook
+    LIMIT limit_value OFFSET offset_value;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE PROCEDURE delete_user_by_username_or_phone(identifier TEXT)
+AS $$
+BEGIN
+    DELETE FROM PhoneBook WHERE phone_number = identifier;
+    IF NOT FOUND THEN
+        DELETE FROM PhoneBook WHERE first_name = identifier OR last_name = identifier;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+import psycopg2
+conn = psycopg2.connect("dbname="PhoneBook" user="Attila")
+cur = conn.cursor()
+
+def search_phonebook(pattern):
+    cur.execute("SELECT * FROM search_phonebook(%s);", (pattern,))
+    return cur.fetchall()
+
+def insert_or_update_user(first_name, last_name, phone_number):
+    cur.execute("CALL insert_or_update_user(%s, %s, %s);", (first_name, last_name, phone_number))
+    conn.commit()
+
+def insert_multiple_users(users_info):
+    cur.execute("CALL insert_multiple_users(%s);", (users_info,))
+    conn.commit()
+
+def query_phonebook_paginated(limit_value, offset_value):
+    cur.execute("SELECT * FROM query_phonebook_paginated(%s, %s);", (limit_value, offset_value))
+    return cur.fetchall()
+
+def delete_user_by_username_or_phone(identifier):
+    cur.execute("CALL delete_user_by_username_or_phone(%s);", (identifier,))
+    conn.commit()
+
+print(search_phonebook("Attia"))
+insert_or_update_user("Damil", "Katayev", "78877887")
+insert_multiple_users(["Roasted,Beef,00000000", "Programming,Principles,1111111"])
+print(query_phonebook_paginated(5, 0))
+delete_user_by_username_or_phone("Roasted")
+cur.close()
+conn.close()
